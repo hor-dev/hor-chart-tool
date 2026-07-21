@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HOR 리포트 차트 프레임 도구</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    background: #F5F5F3;
+    color: #1a1a1a;
+  }
+  .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 22px; font-weight: 700; margin: 0 0 4px 0; }
+  .sub { font-size: 13px; color: #666; margin-bottom: 24px; }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 20px;
+  }
+  .tab {
+    padding: 10px 18px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-size: 14px;
+    font-family: inherit;
+    color: #666;
+    cursor: pointer;
+    margin-bottom: -1px;
+  }
+  .tab.active {
+    color: #000;
+    font-weight: 600;
+    border-bottom-color: #000;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 24px;
+  }
+  .controls {
+    background: white;
+    border: 1px solid #e5e5e5;
+    border-radius: 6px;
+    padding: 20px;
+  }
+  .field { margin-bottom: 14px; }
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #333;
+  }
+  input[type="text"], select, textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #d1d1d1;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  textarea {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    resize: vertical;
+  }
+  input[type="file"] { font-size: 12px; }
+  .hint {
+    font-size: 11px;
+    color: #888;
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    background: #0A0A0C;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+    margin-top: 8px;
+  }
+  .btn:hover { background: #222; }
+  .btn-small {
+    display: inline-block;
+    padding: 4px 10px;
+    background: #f0f0f0;
+    color: #333;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+    margin-right: 4px;
+    margin-top: 4px;
+  }
+  .btn-small:hover { background: #e5e5e5; }
+  .preview-wrap {
+    background: white;
+    border: 1px solid #e5e5e5;
+    border-radius: 6px;
+    padding: 16px;
+  }
+  .preview-label {
+    font-size: 11px;
+    color: #999;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .preview {
+    background: #fafafa;
+    padding: 8px;
+    border-radius: 4px;
+  }
+  .preview svg { width: 100%; height: auto; display: block; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  .height-row { display: flex; gap: 8px; align-items: center; }
+  .height-row select { flex: 1; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>HOR 리포트 차트 프레임 도구</h1>
+  <div class="sub">데이터/차트 이미지를 넣으면 HOR 스타일 프레임으로 감싼 고해상도 PNG를 다운로드합니다.</div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="image">이미지 감싸기</button>
+    <button class="tab" data-tab="chart">데이터로 차트</button>
+    <button class="tab" data-tab="table">데이터로 표</button>
+  </div>
+
+  <div class="layout">
+    <div class="controls">
+      <div class="field">
+        <label>제목</label>
+        <input type="text" id="title" placeholder="예: 폴리마켓과 칼시의 반기별 거래량">
+      </div>
+      <div class="field">
+        <label>부제 (선택)</label>
+        <input type="text" id="subtitle" placeholder="예: 2023년 상반기 ~ 2025년 하반기">
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Source</label>
+          <input type="text" id="source" placeholder="예: Polymarket, Kalshi">
+        </div>
+        <div class="field">
+          <label>날짜</label>
+          <input type="text" id="date" placeholder="예: 2026.03">
+        </div>
+      </div>
+
+      <div id="tab-image" class="tab-panel">
+        <div class="field">
+          <label>차트 이미지 업로드</label>
+          <input type="file" id="imgUpload" accept="image/*">
+          <div class="hint">PNG, JPG, SVG 등. 원본 비율 유지하며 프레임 안에 들어감.</div>
+        </div>
+      </div>
+
+      <div id="tab-chart" class="tab-panel" style="display:none;">
+        <div class="field">
+          <label>차트 종류</label>
+          <select id="chartType">
+            <option value="line">Line (선 차트)</option>
+            <option value="bar">Bar (막대 차트)</option>
+            <option value="area">Area (영역 차트)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>데이터 (CSV / TSV)</label>
+          <textarea id="chartData" rows="10">Month,Polymarket,Kalshi
+H1 2023,0.03,0.2
+H2 2023,0.04,0.6
+H1 2024,0.5,0.6
+H2 2024,8,1
+H1 2025,5,5
+H2 2025,15,18</textarea>
+          <div class="hint">첫 줄: 헤더 (첫 컬럼 = X축 라벨, 나머지 = 시리즈). 쉼표 또는 탭 구분.</div>
+          <button class="btn-small" onclick="loadSample('line1')">샘플: 시계열</button>
+          <button class="btn-small" onclick="loadSample('bar1')">샘플: 범주</button>
+        </div>
+      </div>
+
+      <div id="tab-table" class="tab-panel" style="display:none;">
+        <div class="field">
+          <label>표 데이터</label>
+          <textarea id="tableData" rows="10">주체,수익원,가맹점 수수료 대비 비중,규제 회복성과 내구성
+발급사(은행),발급사 몫의 수수료,약 70-80%,주된 규제 대상. 산업 위험을 짐.
+네트워크,네트워크 수수료와 부가서비스,약 7-9%,가장 영속적이고 구조적 지대.
+매입사,매입 마진,약 3-15%,경쟁이 치열해 상충되기 편해짐.</textarea>
+          <div class="hint">첫 줄: 헤더. 쉼표 또는 탭 구분. 프레임 높이는 행 개수에 맞춰 자동 조정.</div>
+        </div>
+        <div class="field">
+          <label>행 높이 조정</label>
+          <div class="height-row">
+            <select id="tableDensity">
+              <option value="compact">Compact (촘촘)</option>
+              <option value="normal" selected>Normal (표준)</option>
+              <option value="relaxed">Relaxed (여유)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn" onclick="downloadPNG()">PNG 다운로드 (2× 고해상도)</button>
+      <button class="btn" onclick="downloadSVG()" style="background:#666; margin-top:8px;">SVG 다운로드 (인쇄용)</button>
+    </div>
+
+    <div class="preview-wrap">
+      <div class="preview-label" id="previewLabel">Preview</div>
+      <div class="preview" id="preview"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const FRAME_W = 1600;
+const DEFAULT_FRAME_H = 1000;
+const PAD = 90;
+const CONTENT_TOP = 240;
+const HEADER_AREA = 240;
+const FOOTER_AREA = 100;
+
+const PALETTE = ['#0A0A0C', '#C24842', '#2E4B8A', '#D9A32E', '#487F3E', '#7C3A6E', '#3E8383'];
+const FONT = "'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Helvetica Neue', sans-serif";
+
+let currentTab = 'image';
+let uploadedImage = null;
+
+function parseData(text) {
+  const lines = text.trim().split('\n').filter(l => l.trim());
+  if (lines.length === 0) return { headers: [], rows: [] };
+  const sep = lines[0].includes('\t') ? '\t' : ',';
+  const parseLine = (line) => line.split(sep).map(s => s.trim());
+  return {
+    headers: parseLine(lines[0]),
+    rows: lines.slice(1).map(parseLine)
+  };
+}
+
+function parseNum(s) {
+  if (!s) return 0;
+  const clean = String(s).replace(/[$,%\s]/g, '');
+  let mult = 1;
+  let val = clean;
+  if (/B$/i.test(clean)) { mult = 1e9; val = clean.slice(0,-1); }
+  else if (/M$/i.test(clean)) { mult = 1e6; val = clean.slice(0,-1); }
+  else if (/K$/i.test(clean)) { mult = 1e3; val = clean.slice(0,-1); }
+  const n = parseFloat(val);
+  return isNaN(n) ? 0 : n * mult;
+}
+
+function formatNum(n) {
+  const abs = Math.abs(n);
+  if (abs >= 1e9) return (n/1e9).toFixed(abs >= 1e10 ? 0 : 1) + 'B';
+  if (abs >= 1e6) return (n/1e6).toFixed(abs >= 1e7 ? 0 : 1) + 'M';
+  if (abs >= 1e3) return (n/1e3).toFixed(abs >= 1e4 ? 0 : 1) + 'K';
+  if (abs < 10 && abs > 0) return n.toFixed(2);
+  return Math.round(n).toLocaleString();
+}
+
+function escapeXml(s) {
+  return String(s || '').replace(/[<>&"']/g, c => ({
+    '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;'
+  })[c]);
+}
+
+function getRowHeight() {
+  const density = document.getElementById('tableDensity').value;
+  if (density === 'compact') return 44;
+  if (density === 'relaxed') return 68;
+  return 55;
+}
+
+function computeFrameH() {
+  if (currentTab === 'table') {
+    const { rows } = parseData(document.getElementById('tableData').value);
+    if (rows.length === 0) return 500;
+    const totalRows = rows.length + 1;
+    const rowH = getRowHeight();
+    const tableH = totalRows * rowH;
+    const padding = 80;
+    const computed = HEADER_AREA + tableH + padding + FOOTER_AREA;
+    return Math.max(500, Math.min(1400, computed));
+  }
+  return DEFAULT_FRAME_H;
+}
+
+function svgFrame(title, subtitle, source, date, contentSvg, frameH) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${FRAME_W} ${frameH}" font-family="${FONT}">
+    <rect width="${FRAME_W}" height="${frameH}" fill="#FFFFFF"/>
+    <text x="${FRAME_W - 50}" y="${frameH - 40}" font-size="${Math.min(520, frameH * 0.55)}" font-weight="900" 
+          fill="#F4F4F2" text-anchor="end" font-family="${FONT}"
+          style="user-select:none;">#</text>
+    <text x="${PAD}" y="${PAD + 30}" font-size="42" font-weight="700" fill="#0A0A0C">${escapeXml(title || 'Chart Title')}</text>
+    ${subtitle ? `<text x="${PAD}" y="${PAD + 68}" font-size="18" fill="#7A7A7A">${escapeXml(subtitle)}</text>` : ''}
+    <line x1="${PAD}" y1="${PAD + 100}" x2="${PAD + 60}" y2="${PAD + 100}" stroke="#0A0A0C" stroke-width="3"/>
+    ${contentSvg}
+    <line x1="${PAD}" y1="${frameH - 70}" x2="${FRAME_W - PAD}" y2="${frameH - 70}" 
+          stroke="#E5E5E5" stroke-width="1"/>
+    <text x="${PAD}" y="${frameH - 38}" font-size="14" fill="#7A7A7A">
+      Source · ${escapeXml(source || '—')}
+    </text>
+    <text x="${FRAME_W - PAD}" y="${frameH - 38}" text-anchor="end" font-size="14" 
+          font-weight="600" fill="#0A0A0C" letter-spacing="2">
+      ${date ? escapeXml(date) + '  ·  ' : ''}HASHED OPEN RESEARCH
+    </text>
+  </svg>`;
+}
+
+function svgImage(dataUrl, frameH) {
+  const contentBottom = frameH - FOOTER_AREA;
+  const contentH = contentBottom - CONTENT_TOP;
+  const contentW = FRAME_W - 2 * PAD;
+  if (!dataUrl) {
+    return `<text x="${PAD + contentW/2}" y="${CONTENT_TOP + contentH/2}" 
+            text-anchor="middle" font-size="16" fill="#BBB" font-family="${FONT}">
+            좌측에서 이미지를 업로드하세요
+          </text>`;
+  }
+  return `<image href="${dataUrl}" xlink:href="${dataUrl}"
+          x="${PAD}" y="${CONTENT_TOP}" 
+          width="${contentW}" height="${contentH}"
+          preserveAspectRatio="xMidYMid meet"/>`;
+}
+
+function svgLineChart(text, filled, frameH) {
+  const contentBottom = frameH - FOOTER_AREA;
+  const contentH = contentBottom - CONTENT_TOP;
+  const contentW = FRAME_W - 2 * PAD;
+  
+  const { headers, rows } = parseData(text);
+  if (rows.length === 0) {
+    return `<text x="${PAD + contentW/2}" y="${CONTENT_TOP + contentH/2}" 
+            text-anchor="middle" font-size="16" fill="#BBB" font-family="${FONT}">데이터를 입력하세요</text>`;
+  }
+  
+  const labels = rows.map(r => r[0]);
+  const series = headers.slice(1).map((name, i) => ({
+    name,
+    color: PALETTE[i % PALETTE.length],
+    values: rows.map(r => parseNum(r[i + 1]))
+  }));
+  
+  const allVals = series.flatMap(s => s.values);
+  let yMin = Math.min(0, ...allVals);
+  let yMax = Math.max(...allVals);
+  if (yMax === yMin) yMax = yMin + 1;
+  const range = yMax - yMin;
+  yMax += range * 0.1;
+  
+  const cX = PAD + 90;
+  const cY = CONTENT_TOP + 60;
+  const cW = contentW - 120;
+  const cH = contentH - 130;
+  
+  const xScale = i => labels.length > 1 ? cX + (i / (labels.length - 1)) * cW : cX + cW/2;
+  const yScale = v => cY + cH - ((v - yMin) / (yMax - yMin)) * cH;
+  
+  const yTicks = 5;
+  let out = '';
+  
+  for (let i = 0; i <= yTicks; i++) {
+    const val = yMin + (yMax - yMin) * (i / yTicks);
+    const y = yScale(val);
+    out += `<line x1="${cX}" y1="${y}" x2="${cX + cW}" y2="${y}" stroke="#EEEEEE" stroke-width="1"/>`;
+    out += `<text x="${cX - 14}" y="${y + 5}" text-anchor="end" font-size="13" fill="#999" font-family="${FONT}">${formatNum(val)}</text>`;
+  }
+  
+  if (yMin < 0 && yMax > 0) {
+    out += `<line x1="${cX}" y1="${yScale(0)}" x2="${cX + cW}" y2="${yScale(0)}" stroke="#BBB" stroke-width="1"/>`;
+  }
+  
+  const step = Math.max(1, Math.ceil(labels.length / 12));
+  labels.forEach((label, i) => {
+    if (i % step !== 0 && i !== labels.length - 1) return;
+    out += `<text x="${xScale(i)}" y="${cY + cH + 28}" text-anchor="middle" font-size="13" fill="#999" font-family="${FONT}">${escapeXml(label)}</text>`;
+  });
+  
+  series.forEach(s => {
+    if (filled) {
+      const areaPath = s.values.map((v, i) => `${i === 0 ? 'M' : 'L'} ${xScale(i)} ${yScale(v)}`).join(' ')
+        + ` L ${xScale(s.values.length - 1)} ${yScale(0)} L ${xScale(0)} ${yScale(0)} Z`;
+      out += `<path d="${areaPath}" fill="${s.color}" fill-opacity="0.15"/>`;
+    }
+    const linePath = s.values.map((v, i) => `${i === 0 ? 'M' : 'L'} ${xScale(i)} ${yScale(v)}`).join(' ');
+    out += `<path d="${linePath}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    if (s.values.length <= 30) {
+      s.values.forEach((v, i) => {
+        out += `<circle cx="${xScale(i)}" cy="${yScale(v)}" r="3.5" fill="white" stroke="${s.color}" stroke-width="2"/>`;
+      });
+    }
+  });
+  
+  if (series.length > 1) {
+    const legendY = CONTENT_TOP + 20;
+    const startX = cX + cW - series.length * 130;
+    series.forEach((s, i) => {
+      const x = startX + i * 130;
+      out += `<line x1="${x}" y1="${legendY}" x2="${x + 20}" y2="${legendY}" stroke="${s.color}" stroke-width="3"/>`;
+      out += `<circle cx="${x + 10}" cy="${legendY}" r="4" fill="white" stroke="${s.color}" stroke-width="2"/>`;
+      out += `<text x="${x + 28}" y="${legendY + 5}" font-size="13" fill="#0A0A0C" font-family="${FONT}">${escapeXml(s.name)}</text>`;
+    });
+  }
+  
+  return out;
+}
+
+function svgBarChart(text, frameH) {
+  const contentBottom = frameH - FOOTER_AREA;
+  const contentH = contentBottom - CONTENT_TOP;
+  const contentW = FRAME_W - 2 * PAD;
+  
+  const { headers, rows } = parseData(text);
+  if (rows.length === 0) {
+    return `<text x="${PAD + contentW/2}" y="${CONTENT_TOP + contentH/2}" 
+            text-anchor="middle" font-size="16" fill="#BBB" font-family="${FONT}">데이터를 입력하세요</text>`;
+  }
+  
+  const labels = rows.map(r => r[0]);
+  const series = headers.slice(1).map((name, i) => ({
+    name,
+    color: PALETTE[i % PALETTE.length],
+    values: rows.map(r => parseNum(r[i + 1]))
+  }));
+  
+  const allVals = series.flatMap(s => s.values);
+  let yMin = Math.min(0, ...allVals);
+  let yMax = Math.max(...allVals);
+  if (yMax === yMin) yMax = yMin + 1;
+  const range = yMax - yMin;
+  yMax += range * 0.1;
+  
+  const cX = PAD + 90;
+  const cY = CONTENT_TOP + 60;
+  const cW = contentW - 120;
+  const cH = contentH - 130;
+  
+  const groupW = cW / labels.length;
+  const barW = Math.min(80, (groupW * 0.7) / series.length);
+  
+  const yScale = v => cY + cH - ((v - yMin) / (yMax - yMin)) * cH;
+  
+  let out = '';
+  
+  const yTicks = 5;
+  for (let i = 0; i <= yTicks; i++) {
+    const val = yMin + (yMax - yMin) * (i / yTicks);
+    const y = yScale(val);
+    out += `<line x1="${cX}" y1="${y}" x2="${cX + cW}" y2="${y}" stroke="#EEEEEE" stroke-width="1"/>`;
+    out += `<text x="${cX - 14}" y="${y + 5}" text-anchor="end" font-size="13" fill="#999" font-family="${FONT}">${formatNum(val)}</text>`;
+  }
+  
+  if (yMin < 0 && yMax > 0) {
+    out += `<line x1="${cX}" y1="${yScale(0)}" x2="${cX + cW}" y2="${yScale(0)}" stroke="#333" stroke-width="1"/>`;
+  }
+  
+  labels.forEach((label, li) => {
+    const groupCenter = cX + groupW * li + groupW / 2;
+    series.forEach((s, si) => {
+      const val = s.values[li];
+      const barX = groupCenter - (series.length * barW) / 2 + si * barW + 2;
+      const barTop = yScale(Math.max(0, val));
+      const barBot = yScale(Math.min(0, val));
+      const barH = Math.max(1, Math.abs(barBot - barTop));
+      out += `<rect x="${barX}" y="${barTop}" width="${barW - 4}" height="${barH}" fill="${s.color}"/>`;
+      if (series.length <= 3) {
+        out += `<text x="${barX + (barW-4)/2}" y="${barTop - 6}" text-anchor="middle" font-size="11" fill="#666" font-family="${FONT}">${formatNum(val)}</text>`;
+      }
+    });
+    out += `<text x="${groupCenter}" y="${cY + cH + 28}" text-anchor="middle" font-size="13" fill="#999" font-family="${FONT}">${escapeXml(label)}</text>`;
+  });
+  
+  if (series.length > 1) {
+    const legendY = CONTENT_TOP + 20;
+    const startX = cX + cW - series.length * 130;
+    series.forEach((s, i) => {
+      const x = startX + i * 130;
+      out += `<rect x="${x}" y="${legendY - 8}" width="14" height="14" fill="${s.color}"/>`;
+      out += `<text x="${x + 22}" y="${legendY + 4}" font-size="13" fill="#0A0A0C" font-family="${FONT}">${escapeXml(s.name)}</text>`;
+    });
+  }
+  
+  return out;
+}
+
+function svgTable(text, frameH) {
+  const { headers, rows } = parseData(text);
+  const contentBottom = frameH - FOOTER_AREA;
+  const contentH = contentBottom - CONTENT_TOP;
+  const contentW = FRAME_W - 2 * PAD;
+  
+  if (rows.length === 0) {
+    return `<text x="${PAD + contentW/2}" y="${CONTENT_TOP + contentH/2}" 
+            text-anchor="middle" font-size="16" fill="#BBB" font-family="${FONT}">데이터를 입력하세요</text>`;
+  }
+  
+  const cols = headers.length;
+  const tableW = contentW - 120;
+  const tableX = PAD + 60;
+  const colW = tableW / cols;
+  const rowH = getRowHeight();
+  
+  const totalRows = rows.length + 1;
+  const tableH = rowH * totalRows;
+  
+  const tableY = CONTENT_TOP + (contentH - tableH) / 2;
+  
+  let out = '';
+  
+  out += `<rect x="${tableX}" y="${tableY}" width="${tableW}" height="${rowH}" fill="#0A0A0C"/>`;
+  headers.forEach((h, i) => {
+    const align = i === 0 ? 'start' : 'end';
+    const x = i === 0 ? tableX + 20 : tableX + colW * (i + 1) - 20;
+    out += `<text x="${x}" y="${tableY + rowH/2 + 6}" text-anchor="${align}" 
+            font-size="15" font-weight="700" fill="#FFFFFF" font-family="${FONT}">${escapeXml(h)}</text>`;
+  });
+  
+  rows.forEach((row, ri) => {
+    const y = tableY + rowH * (ri + 1);
+    if (ri % 2 === 1) {
+      out += `<rect x="${tableX}" y="${y}" width="${tableW}" height="${rowH}" fill="#FAFAFA"/>`;
+    }
+    row.forEach((cell, ci) => {
+      const align = ci === 0 ? 'start' : 'end';
+      const x = ci === 0 ? tableX + 20 : tableX + colW * (ci + 1) - 20;
+      const weight = ci === 0 ? '600' : '400';
+      let fill = '#1a1a1a';
+      if (ci > 0 && typeof cell === 'string') {
+        if (cell.startsWith('+')) fill = '#487F3E';
+        else if (cell.startsWith('-') && !isNaN(parseFloat(cell.slice(1)))) fill = '#C24842';
+      }
+      out += `<text x="${x}" y="${y + rowH/2 + 5}" text-anchor="${align}" 
+              font-size="14" font-weight="${weight}" fill="${fill}" font-family="${FONT}">${escapeXml(cell)}</text>`;
+    });
+    out += `<line x1="${tableX}" y1="${y + rowH}" x2="${tableX + tableW}" y2="${y + rowH}" 
+            stroke="#EEEEEE" stroke-width="1"/>`;
+  });
+  
+  return out;
+}
+
+function render() {
+  const title = document.getElementById('title').value;
+  const subtitle = document.getElementById('subtitle').value;
+  const source = document.getElementById('source').value;
+  const date = document.getElementById('date').value;
+  
+  const frameH = computeFrameH();
+  
+  let contentSvg = '';
+  if (currentTab === 'image') {
+    contentSvg = svgImage(uploadedImage, frameH);
+  } else if (currentTab === 'chart') {
+    const chartType = document.getElementById('chartType').value;
+    const data = document.getElementById('chartData').value;
+    if (chartType === 'line') contentSvg = svgLineChart(data, false, frameH);
+    else if (chartType === 'area') contentSvg = svgLineChart(data, true, frameH);
+    else if (chartType === 'bar') contentSvg = svgBarChart(data, frameH);
+  } else if (currentTab === 'table') {
+    contentSvg = svgTable(document.getElementById('tableData').value, frameH);
+  }
+  
+  const svg = svgFrame(title, subtitle, source, date, contentSvg, frameH);
+  document.getElementById('preview').innerHTML = svg;
+  document.getElementById('previewLabel').textContent = `Preview · ${FRAME_W} × ${Math.round(frameH)}`;
+}
+
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentTab = btn.dataset.tab;
+    document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+    document.getElementById('tab-' + currentTab).style.display = 'block';
+    render();
+  });
+});
+
+['title', 'subtitle', 'source', 'date', 'chartData', 'chartType', 'tableData', 'tableDensity'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', render);
+  if (el) el.addEventListener('change', render);
+});
+
+document.getElementById('imgUpload').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    uploadedImage = reader.result;
+    render();
+  };
+  reader.readAsDataURL(file);
+});
+
+function loadSample(kind) {
+  const el = document.getElementById('chartData');
+  const typeEl = document.getElementById('chartType');
+  if (kind === 'line1') {
+    el.value = `Month,Polymarket,Kalshi
+H1 2023,0.03,0.2
+H2 2023,0.04,0.6
+H1 2024,0.5,0.6
+H2 2024,8,1
+H1 2025,5,5
+H2 2025,15,18`;
+    typeEl.value = 'line';
+  } else if (kind === 'bar1') {
+    el.value = `카테고리,비중
+스포츠,37.5
+정치,13.6
+크립토,4.5
+지정학,4.0
+경제,5.1
+대중문화,8.9`;
+    typeEl.value = 'bar';
+  }
+  render();
+}
+window.loadSample = loadSample;
+
+async function downloadPNG() {
+  const svg = document.querySelector('#preview svg');
+  if (!svg) return;
+  
+  const vb = svg.getAttribute('viewBox').split(' ');
+  const w = parseFloat(vb[2]);
+  const h = parseFloat(vb[3]);
+  
+  const scale = 2;
+  const svgString = new XMLSerializer().serializeToString(svg);
+  const svgBlob = new Blob([svgString], {type: 'image/svg+xml;charset=utf-8'});
+  const url = URL.createObjectURL(svgBlob);
+  
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = w * scale;
+    canvas.height = h * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    
+    canvas.toBlob(blob => {
+      const link = document.createElement('a');
+      const title = document.getElementById('title').value || 'chart';
+      link.download = `hor_${title.replace(/\s+/g, '_').replace(/[^\w가-힣_-]/g, '')}.png`;
+      link.href = URL.createObjectURL(blob);
+      link.click();
+      URL.revokeObjectURL(link.href);
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  };
+  img.src = url;
+}
+
+async function downloadSVG() {
+  const svg = document.querySelector('#preview svg');
+  if (!svg) return;
+  const svgString = new XMLSerializer().serializeToString(svg);
+  const blob = new Blob([svgString], {type: 'image/svg+xml;charset=utf-8'});
+  const link = document.createElement('a');
+  const title = document.getElementById('title').value || 'chart';
+  link.download = `hor_${title.replace(/\s+/g, '_').replace(/[^\w가-힣_-]/g, '')}.svg`;
+  link.href = URL.createObjectURL(blob);
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+window.downloadPNG = downloadPNG;
+window.downloadSVG = downloadSVG;
+
+render();
+</script>
+</body>
+</html>
