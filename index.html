@@ -678,17 +678,11 @@ function svgTable(text, frameH) {
 
     info.wrapped.forEach((lines, ci) => {
       const cx = tableX + colW * ci + colW / 2;
-      const isLastCol = ci === cols - 1;
-      const cellRaw = String(rows[ri][ci] || '').trim();
-      const emphasize = isLastCol && isNumericLike(cellRaw);
-      const fill = emphasize ? PRIMARY : INK;
-      const weight = emphasize ? '700' : '400';
-      const size = emphasize ? 22 : bodyFontSize;
       const totalLines = lines.length;
       const blockTop = y + h/2 - (totalLines * lineHeight) / 2 + lineHeight - 8;
       lines.forEach((line, li) => {
         out += `<text x="${cx}" y="${blockTop + li * lineHeight}" text-anchor="middle" 
-                      font-size="${size}" font-weight="${weight}" fill="${fill}" font-family="${FONT}">${escapeXml(line)}</text>`;
+                      font-size="${bodyFontSize}" font-weight="400" fill="${INK}" font-family="${FONT}">${escapeXml(line)}</text>`;
       });
     });
 
