@@ -39,6 +39,10 @@
   .row > * { flex: 1; }
   .height-row { display: flex; gap: 8px; align-items: center; }
   .height-row select { flex: 1; }
+  .color-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+  .color-row input[type="color"] { flex: 0 0 42px; width: 42px; height: 34px; padding: 2px; border: 1px solid #d1d1d1; border-radius: 4px; background: white; cursor: pointer; }
+  .color-row input[type="text"] { flex: 1 1 auto; width: auto; min-width: 0; font-family: 'Courier New', monospace; }
+  .color-row input[type="text"].invalid { border-color: #d33; background: #fff5f5; }
 </style>
 </head>
 <body>
@@ -63,12 +67,18 @@
         <input type="text" id="subtitle" placeholder="예: 2023 Q3 ~ 2025 Q3">
       </div>
       <div class="field">
-        <label>포인트 색</label>
-        <select id="accentColor">
+        <label>포인트 색 (Key Color)</label>
+        <select id="accentPreset">
           <option value="#2332DC">파랑 (HOR Blue)</option>
           <option value="#0A0A0C">검정</option>
+          <option value="custom">직접 입력</option>
         </select>
-        <div class="hint">좌측 세로 바와 표 헤더에 적용됩니다.</div>
+        <div class="color-row">
+          <input type="color" id="accentColor" value="#2332DC" aria-label="색상 선택">
+          <input type="text" id="accentText" value="#2332DC" spellcheck="false" placeholder="#2332DC" aria-label="Hex 또는 RGB 값">
+        </div>
+        <div class="hint">좌측 세로 바와 표 헤더에 적용됩니다.<br>
+          <code>#2332DC</code> <code>2332DC</code> <code>#23D</code> <code>rgb(35,50,220)</code> 모두 인식합니다.</div>
       </div>
       <div class="row">
         <div class="field">
@@ -731,7 +741,7 @@ function render() {
   const source = document.getElementById('source').value;
   const date = document.getElementById('date').value;
 
-  ACCENT = document.getElementById('accentColor').value;
+  ACCENT = document.getElementById('accentColor').value.toUpperCase();
 
   // No source/date → collapse the footer so the content extends further down
   const hasSource = [source, date].some(x => x && String(x).trim());
@@ -791,7 +801,81 @@ document.querySelectorAll('.tab').forEach(btn => {
   });
 });
 
-['title', 'subtitle', 'accentColor', 'source', 'date', 'chartData', 'chartType', 'tableData', 'tableDensity'].forEach(id => {
+// --- Key color: preset / picker / hex-rgb text stay in sync -----------------
+// The <input type="color"> holds the canonical value; render() reads it.
+function parseColor(str) {
+  const s = String(str == null ? '' : str).trim();
+  if (!s) return null;
+
+  let m = s.match(/^#?([0-9a-f])([0-9a-f])([0-9a-f])$/i);
+  if (m) return ('#' + m[1] + m[1] + m[2] + m[2] + m[3] + m[3]).toUpperCase();
+
+  m = s.match(/^#?([0-9a-f]{6})$/i);
+  if (m) return ('#' + m[1]).toUpperCase();
+
+  // rgb(35,50,220) / rgba(35 50 220 / 0.5) — alpha is parsed but dropped, the
+  // SVG fills here are opaque.
+  m = s.match(/^rgba?\(\s*([\d.]+%?)[\s,]+([\d.]+%?)[\s,]+([\d.]+%?)\s*(?:[,\/]\s*[\d.]+%?\s*)?\)$/i);
+  if (m) {
+    const channel = (v) => {
+      const n = parseFloat(v);
+      if (!isFinite(n)) return null;
+      const scaled = v.endsWith('%') ? (n * 255) / 100 : n;
+      return Math.max(0, Math.min(255, Math.round(scaled)));
+    };
+    const rgb = [m[1], m[2], m[3]].map(channel);
+    if (rgb.some(v => v === null)) return null;
+    return '#' + rgb.map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+  }
+
+  return null;
+}
+
+function applyAccent(hex, opts) {
+  const keepText = !!(opts && opts.keepText);
+  const picker = document.getElementById('accentColor');
+  const text = document.getElementById('accentText');
+  const preset = document.getElementById('accentPreset');
+
+  picker.value = hex;
+  if (!keepText) text.value = hex;
+  text.classList.remove('invalid');
+
+  const known = Array.from(preset.options).some(o => o.value.toUpperCase() === hex);
+  preset.value = known ? hex : 'custom';
+
+  render();
+}
+
+document.getElementById('accentPreset').addEventListener('change', (e) => {
+  const text = document.getElementById('accentText');
+  if (e.target.value === 'custom') {
+    text.focus();
+    text.select();
+    return;
+  }
+  applyAccent(e.target.value.toUpperCase());
+});
+
+document.getElementById('accentColor').addEventListener('input', (e) => {
+  applyAccent(e.target.value.toUpperCase());
+});
+
+document.getElementById('accentText').addEventListener('input', (e) => {
+  const hex = parseColor(e.target.value);
+  // Mid-typing values ("#23") are invalid — flag them, but leave the last good
+  // color in place instead of resetting the preview.
+  if (!hex) { e.target.classList.add('invalid'); return; }
+  applyAccent(hex, { keepText: true });
+});
+
+document.getElementById('accentText').addEventListener('blur', (e) => {
+  const hex = parseColor(e.target.value);
+  e.target.value = hex || document.getElementById('accentColor').value.toUpperCase();
+  e.target.classList.remove('invalid');
+});
+
+['title', 'subtitle', 'source', 'date', 'chartData', 'chartType', 'tableData', 'tableDensity'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.addEventListener('input', render);
   if (el) el.addEventListener('change', render);
